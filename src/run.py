@@ -6,8 +6,6 @@ import re
 import random
 from flask import Flask, redirect, render_template, request, url_for, session
 
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_API_KEY"] = "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"
 os.environ["GOOGLE_API_KEY"] = "AIzaSyDuEc50CK1T3dRYfhMx2_-r1igsSd0PY54"
 
 genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
