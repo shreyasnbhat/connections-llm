@@ -1,0 +1,42 @@
+[
+    {
+        "category": "Genres",
+        "difficulty": 1,
+        "items": [
+            "Comedy",
+            "Romance",
+            "Action",
+            "Horror"
+        ]
+    },
+    {
+        "category": "Streaming Services",
+        "difficulty": 2,
+        "items": [
+            "Netflix",
+            "Disney+",
+            "Hulu",
+            "HBO Max"
+        ]
+    },
+    {
+        "category": "Awards",
+        "difficulty": 3,
+        "items": [
+            "Oscar",
+            "BAFTA",
+            "Golden Globe",
+            "Cannes"
+        ]
+    },
+    {
+        "category": "Technical Roles",
+        "difficulty": 4,
+        "items": [
+            "Cinematographer",
+            "Screenwriter",
+            "Composer",
+            "Editor"
+        ]
+    }
+]

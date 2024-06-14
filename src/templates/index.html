@@ -5,9 +5,12 @@
     <title>Connections Game</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Roboto', sans-serif;
+            font-family: 'Google Sans', sans-serif;
         }
 
         table {
@@ -43,7 +46,7 @@
         }
 
         td.active {
-            background-color: #c7cec8;
+            background-color: #dae1db;
             /* Green background for active cells */
         }
 
@@ -73,6 +76,10 @@
             cursor: pointer;
         }
 
+        .incorrect-word {
+            background-color: #c7cec8;
+        }
+
         .category-1 {
             background-color: rgb(253, 232, 39);
         }
@@ -87,11 +94,6 @@
 
         .category-4 {
             background-color: rgb(253, 149, 133);
-        }
-
-        .verified-word {
-            background-color: #a3df85;
-            /* Light gray for verified words */
         }
 
         /* Popup Styles */
@@ -117,6 +119,11 @@
             top: 10px;
             right: 10px;
             cursor: pointer;
+        }
+
+        .word-cell:hover {
+            background-color: #e0e7e4;
+            /* Light gray background on hover */
         }
 
         /* Disable Button Styles */
@@ -148,10 +155,37 @@
             cursor: pointer;
             font-size: 16px;
         }
+
+        /* Input Styles */
+        input[type="text"] {
+            width: 100%;
+            /* Make input take up full width of cell */
+            height: 100%;
+            /* Make input take up full height of cell */
+            padding: 10px;
+            /* Add some padding */
+            border: none;
+            /* Remove default border */
+            font-size: 1.2em;
+            /* Increase font size */
+            text-align: center;
+            /* Center text */
+            background-color: transparent;
+            /* Make background transparent */
+            font-family: 'Google Sans', sans-serif;
+            /* Use Google Sans for input text */
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            /* Remove focus outline */
+        }
     </style>
     <script>
-        const correctWords = {{ correct_words | tojson }};
+        const correctCategoryToWords = {{ correct_category_to_words_map | tojson }};
+        const categoryDifficultyMap = {{ correct_difficulty_to_category_map | tojson }};
         const gameAttempts = {{ attempts | tojson }};
+        const incorrectWords = {{ incorrect_words | tojson }};
     </script>
 </head>
 
@@ -171,31 +205,30 @@
     <table>
         <thead>
             <tr>
-                <th colspan="4">Connections w/ Gemini -> {{ theme }}</th>
+                <th colspan="4">Connections w/ Gemini ({{ theme }}), Attempts Left: {{attempts}}</th>
             </tr>
         </thead>
         <tbody>
             {% for row in range(4) %}
+            {% if row + 1 in correct_difficulty_to_category_map %}
+            <tr>
+                <th colspan="4" class="category-{{ row + 1 }}">{{ correct_difficulty_to_category_map[row + 1] }}</th>
+            </tr>
+            {% else %}
             <tr>
                 {% for col in range(4) %}
-                <td data-index="{{ row * 4 + col }}" class="word-cell" data-category="">
-                    {% if words | length > row * 4 + col %}
-                    <input type="text" name="selected_words" id="{{ words[row * 4 + col] }}"
-                        value="{{ words[row * 4 + col] }}" {% for word, difficulty in correct_words %} {% if words[row *
-                        4 + col]==word %} {% if difficulty==1 %} class="category-1" {% elif difficulty==2 %}
-                        class="category-2" {% elif difficulty==3 %} class="category-3" {% elif difficulty==4 %}
-                        class="category-4" {% endif %} readonly>
-                    {% endif %}
-                    {% endfor %}
-                    {% endif %}
+                <td data-index="{{ word_grid[row][col] }}" class="word-cell" data-category="">
+                    <input type="text" name="selected_words" id="{{ word_grid[row][col] }}"
+                        value="{{ word_grid[row][col] }}"
+                        class="{% if word_grid[row][col] in incorrect_words %}incorrect-word{% else %}category-{{ row + 1 }}{% endif %}"
+                        readonly>
                 </td>
                 {% endfor %}
             </tr>
+            {% endif %}
             {% endfor %}
         </tbody>
     </table>
-
-    <div id="results"></div>
 
     <form method="POST" id="verify-form" action="/verify"
         style="display: flex; justify-content: center; align-items: center;">
@@ -211,39 +244,32 @@
 
     <script>
         const wordCells = document.querySelectorAll('.word-cell');
-        const resultsDiv = document.getElementById('results');
-        const verifyButton = document.getElementById('verify-button');
-        const newGameButton = document.getElementById('new-game-button');
-        const newGamePopupButton = document.getElementById('new-game-popup-button');
-        const themeInput = document.getElementById('theme-input');
-        const popup = document.getElementById('popup');
-        const popupMessage = document.getElementById('popup-message');
-        let clickedCells = new Set();
+        let clickedWords = new Set();
 
         // Setup a click event listener for each word cell. Clicking must be a toggle event.
         wordCells.forEach(cell => {
             cell.addEventListener('click', () => {
+                // if active add to clickedWords else remove from clickedWords.
+                const index = cell.dataset.index;
+                if (cell.classList.contains('active')) {
+                    clickedWords.delete(index);
+                } else {
+                    clickedWords.add(index);
+                }
                 cell.classList.toggle('active');
-                const index = parseInt(cell.dataset.index);
-                clickedCells.add(index);
             });
         });
 
+        const verifyButton = document.getElementById('verify-button');
+
         verifyButton.addEventListener('click', () => {
-            if (clickedCells.size < 4 || clickedCells.size > 4) {
-                resultsDiv.innerHTML = "Please click four words to check!";
+            if (clickedWords.size < 4 || clickedWords.size > 4) {
+                alert('Please select exactly 4 words.');
                 return;
             }
 
-            // Collect selected words.
-            const selectedWords = [];
-            clickedCells.forEach(index => {
-                const cell = wordCells[index];
-                const word = cell.querySelector('input').value;
-                selectedWords.push(word);
-            });
-
             // Send selected words to /verify using a POST request
+            const selectedWords = Array.from(clickedWords);
             const form = document.getElementById('verify-form');
             const hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
@@ -252,6 +278,12 @@
             form.appendChild(hiddenInput);
             form.submit();
         });
+
+        const newGameButton = document.getElementById('new-game-button');
+        const newGamePopupButton = document.getElementById('new-game-popup-button');
+        const themeInput = document.getElementById('theme-input');
+        const popup = document.getElementById('popup');
+        const popupMessage = document.getElementById('popup-message');
 
         newGameButton.addEventListener('click', () => {
             const form = document.getElementById('ad-hoc-new-game-form');
@@ -273,7 +305,7 @@
             openPopup("You've Lost!");
             verifyButton.disabled = true;
             verifyButton.classList.add('disabled');
-        } else if (correctWords.length == 16) {
+        } else if (Object.keys(correctCategoryToWords).length == 4) {
             openPopup("You've Won!");
         }
     </script>
