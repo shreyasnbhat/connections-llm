@@ -113,5 +113,5 @@ class ConnectionsGameState:
             for word in selected_words:
                 guess_category_count_map[self.word_to_category[word]] = guess_category_count_map.get(self.word_to_category[word], 0) + 1
             if max(guess_category_count_map.values()) == 3:
-                return VerificationResult.ONE_AWAY
+                return VerificationResult.ONE_AWAY, 0
             return VerificationResult.FAILED, 0

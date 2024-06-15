@@ -35,7 +35,7 @@ class ConnectionsLLM(BaseLLM):
 
     @staticmethod
     def initialize_model(api_key=None):
-        super.initialize_model(api_key)
+        BaseLLM.initialize_model(api_key)
         generation_config = {
             "temperature": 1,
             "top_p": 0.95,
@@ -71,7 +71,7 @@ class AlreadyGuessedMessagesLLM(BaseLLM):
 
     @staticmethod
     def initialize_model(api_key=None):
-        super.initialize_model(api_key)
+        BaseLLM.initialize_model(api_key)
         generation_config = {
             "temperature": 1,
             "top_p": 0.95,

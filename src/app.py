@@ -8,7 +8,7 @@ os.environ["GEMINI_API_KEY"] = "AIzaSyDuEc50CK1T3dRYfhMx2_-r1igsSd0PY54"
 
 ConnectionsLLM.initialize_model(api_key=os.environ["GEMINI_API_KEY"])
 AlreadyGuessedMessagesLLM.initialize_model(api_key=os.environ["GEMINI_API_KEY"])
-TESTING = True
+TESTING = False
 
 # Flask Deployment
 app = Flask(__name__)
