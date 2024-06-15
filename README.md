@@ -32,7 +32,7 @@ pip install -r requirements.txt
 3. Run the Application:
 
 ```
-python run.py
+flask run.py
 ```
 
 #### Notes
