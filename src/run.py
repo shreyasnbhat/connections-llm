@@ -3,9 +3,11 @@ import os
 import random
 from flask import Flask, redirect, render_template, request, url_for, session
 from connections_llm import ConnectionsLLM
+from enum import Enum
+
 
 os.environ["GOOGLE_API_KEY"] = "AIzaSyDuEc50CK1T3dRYfhMx2_-r1igsSd0PY54"
-testing = False
+testing = True
 
 # LLM Agent Setup
 ConnectionsLLM.initialize_model(api_key=os.environ["GOOGLE_API_KEY"])
@@ -14,9 +16,15 @@ ConnectionsLLM.initialize_model(api_key=os.environ["GOOGLE_API_KEY"])
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Set a secret key for sessions
 
+class VerificationResult(Enum):
+    SUCCESS = 1
+    ALREADY_GUESSED = 2
+    FAILED = 3
+
 class ConnectionsGameState:
     def __init__(self, categories, theme = "", 
                  words = [], 
+                 incorrect_guesses = [], 
                  correct_difficulty_to_category_map = {}, 
                  correct_category_to_words_map = {}, 
                  attempts=4):
@@ -34,6 +42,8 @@ class ConnectionsGameState:
         self.words = []
         self.category_difficulty_map = {}
         self.word_to_category = {}
+        self.incorrect_guesses = incorrect_guesses
+
         game_init = (len(words) == 0)
         for category_info in self.categories:
             category = category_info['category']
@@ -58,6 +68,7 @@ class ConnectionsGameState:
             'theme': self.theme,
             'categories': self.categories,
             'words' : self.words,
+            'incorrect_guesses' : self.incorrect_guesses,
             'correct_category_to_words_map': self.correct_category_to_words_map,
             'correct_difficulty_to_category_map': self.correct_difficulty_to_category_map,
             'attempts': self.attempts
@@ -93,20 +104,24 @@ class ConnectionsGameState:
         return word_grid
 
 
-    def verify(self, selected_words):
+    def verify(self, selected_words) -> VerificationResult:
         # Check from word_to_category if the category for all words is the same.
         if self.attempts == 0 or len(selected_words) != 4:
-            return False
+            return VerificationResult.FAILED
 
         categories = [self.word_to_category[word] for word in selected_words]
+        selected_words.sort()
         if len(set(categories)) == 1:
             if categories[0] not in self.correct_category_to_words_map:
                 self.correct_category_to_words_map[categories[0]] = selected_words
                 self.correct_difficulty_to_category_map[self.category_difficulty_map[categories[0]]] = categories[0]
-            return True
+            return VerificationResult.SUCCESS
+        elif selected_words in self.incorrect_guesses:
+            return VerificationResult.ALREADY_GUESSED
         else:
             self.attempts = self.attempts - 1
-            return False
+            self.incorrect_guesses.append(selected_words)
+            return VerificationResult.FAILED
 
 @app.route('/')
 def index():
@@ -155,10 +170,12 @@ def new_game():
 @app.route('/verify', methods=['POST'])
 def verify():
     game_state = ConnectionsGameState(**session['game_state'])
+    verification_result = VerificationResult.FAILED
     if request.form.get('selected_words'):
         selected_words = json.loads(request.form.get('selected_words'))
         print('Selected Words: %s' %selected_words)
-        print("Verify: %s" % game_state.verify(selected_words))
+        verification_result = game_state.verify(selected_words)
+        print('Verification Result: %s' %verification_result)
     session['game_state'] = game_state.to_json()
     incorrect_words = game_state.get_incorrect_words()
     word_grid = game_state.generate_word_grid()
@@ -168,6 +185,7 @@ def verify():
                            word_grid = word_grid,
                            correct_difficulty_to_category_map=session['game_state']['correct_difficulty_to_category_map'],
                            correct_category_to_words_map=session['game_state']['correct_category_to_words_map'], 
+                           already_guessed = verification_result == VerificationResult.ALREADY_GUESSED,
                            attempts=session['game_state']['attempts'])
 
 if __name__ == '__main__':
