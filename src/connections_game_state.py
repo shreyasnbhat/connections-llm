@@ -1,16 +1,16 @@
-from enum import Enum
+import enum
 import random
 
-
-class VerificationResult(Enum):
-    SUCCESS = 1
-    ALREADY_GUESSED = 2
-    FAILED = 3
+class VerificationResult(enum.Enum):
+    SUCCESS = enum.auto()
+    ALREADY_GUESSED = enum.auto()
+    ONE_AWAY = enum.auto()
+    FAILED = enum.auto()
 
 class ConnectionsGameState:
     def __init__(self, categories, theme = "", 
                  words = [], 
-                 incorrect_guesses = [], 
+                 incorrect_guesses = {}, 
                  correct_difficulty_to_category_map = {}, 
                  correct_category_to_words_map = {}, 
                  attempts=4):
@@ -86,25 +86,32 @@ class ConnectionsGameState:
             if word_grid[row] == []:
                 word_grid[row] = incorrect_words_chunks[idx]
                 idx += 1
-
         return word_grid
 
 
     def verify(self, selected_words) -> VerificationResult:
         # Check from word_to_category if the category for all words is the same.
         if self.attempts == 0 or len(selected_words) != 4:
-            return VerificationResult.FAILED
+            return VerificationResult.FAILED, 0
 
         categories = [self.word_to_category[word] for word in selected_words]
         selected_words.sort()
+        selected_words_key = ",".join(selected_words)
         if len(set(categories)) == 1:
             if categories[0] not in self.correct_category_to_words_map:
                 self.correct_category_to_words_map[categories[0]] = selected_words
                 self.correct_difficulty_to_category_map[self.category_difficulty_map[categories[0]]] = categories[0]
-            return VerificationResult.SUCCESS
-        elif selected_words in self.incorrect_guesses:
-            return VerificationResult.ALREADY_GUESSED
+            return VerificationResult.SUCCESS, 0
+        elif selected_words_key in self.incorrect_guesses:
+            self.incorrect_guesses[selected_words_key] += 1
+            return VerificationResult.ALREADY_GUESSED, self.incorrect_guesses[selected_words_key]
         else:
             self.attempts = self.attempts - 1
-            self.incorrect_guesses.append(selected_words)
-            return VerificationResult.FAILED
+            self.incorrect_guesses[selected_words_key] = 0
+
+            guess_category_count_map = {}
+            for word in selected_words:
+                guess_category_count_map[self.word_to_category[word]] = guess_category_count_map.get(self.word_to_category[word], 0) + 1
+            if max(guess_category_count_map.values()) == 3:
+                return VerificationResult.ONE_AWAY
+            return VerificationResult.FAILED, 0

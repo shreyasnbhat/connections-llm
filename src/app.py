@@ -1,10 +1,13 @@
 import json
 import os
 from flask import Flask, redirect, render_template, request, url_for, session
-from connections_llm import ConnectionsLLM
+from connections_llm import ConnectionsLLM, AlreadyGuessedMessagesLLM
 from connections_game_state import ConnectionsGameState, VerificationResult
 
-os.environ["GOOGLE_API_KEY"] = "AIzaSyDuEc50CK1T3dRYfhMx2_-r1igsSd0PY54"
+os.environ["GEMINI_API_KEY"] = "AIzaSyDuEc50CK1T3dRYfhMx2_-r1igsSd0PY54"
+
+ConnectionsLLM.initialize_model(api_key=os.environ["GEMINI_API_KEY"])
+AlreadyGuessedMessagesLLM.initialize_model(api_key=os.environ["GEMINI_API_KEY"])
 TESTING = True
 
 # Flask Deployment
@@ -63,8 +66,9 @@ def verify():
     if request.form.get('selected_words'):
         selected_words = json.loads(request.form.get('selected_words'))
         print('Selected Words: %s' %selected_words)
-        verification_result = game_state.verify(selected_words)
+        verification_result, already_guessed_attempts = game_state.verify(selected_words)
         print('Verification Result: %s' %verification_result)
+    
     session['game_state'] = game_state.to_json()
     incorrect_words = game_state.get_incorrect_words()
     word_grid = game_state.generate_word_grid()
@@ -74,10 +78,9 @@ def verify():
                            word_grid = word_grid,
                            correct_difficulty_to_category_map=session['game_state']['correct_difficulty_to_category_map'],
                            correct_category_to_words_map=session['game_state']['correct_category_to_words_map'], 
-                           already_guessed = verification_result == VerificationResult.ALREADY_GUESSED,
+                           verification_result = verification_result,
+                           already_guessed_alert_message = AlreadyGuessedMessagesLLM.get_alert_message(already_guessed_attempts),
                            attempts=session['game_state']['attempts'])
 
 if __name__ == '__main__':
-    ConnectionsLLM.initialize_model(api_key=os.environ["GOOGLE_API_KEY"])
-
     app.run(debug=True)

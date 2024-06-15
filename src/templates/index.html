@@ -257,9 +257,15 @@
             {% endif %}
             {% endfor %}
             <tr>
-                <th id="verification-result" colspan="4"> {% if already_guessed %}
-                    Already Guessed!
-                    {% endif %}</th>
+                <th id="verification-result" colspan="4"> 
+                    {% if verification_result %}
+                        {% if verification_result.name == "ALREADY_GUESSED" %}
+                            {{already_guessed_alert_message}}
+                        {% elif verification_result.name == "ONE_AWAY" %}
+                            One Away!                    
+                        {% endif %}
+                    {% endif %}
+                </th>
             </tr>
         </tbody>
 
